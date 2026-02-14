@@ -90,6 +90,15 @@ void main(string[] args)
             showEnv();
             break;
 
+        case "run":
+            if (args.length < 3)
+            {
+                writeln("Usage: pun run <file.pl>");
+                return;
+            }
+            runScript(args[2 .. $]);
+            break;
+
         case "version":
             showVersion();
             break;
@@ -116,6 +125,7 @@ void printUsage()
     writeln("  init [version] [--lib]  Initialize project (--lib for library scaffold)");
     writeln("  activate                Activate project environment");
     writeln("  add <module>            Add a CPAN module to project");
+    writeln("  run <file>              Run a Perl script with project environment");
     writeln("  env                     Show environment setup commands");
     writeln("  version                 Show pun version and exit");
 }
@@ -397,7 +407,7 @@ void useExternalPerl(string perlPath)
 
     writeln();
     writeln("Created ", PROJECT_LOCAL_CONFIG, " pointing to: ", installPath);
-    writeln("Run: pun activate");
+    activateProject();
 }
 
 void updatePunrcVersion(string version_)
@@ -485,7 +495,7 @@ void initProject(string version_, bool isLib)
     }
     writeln("  Local lib: lib/");
     writeln();
-    writeln("Run: pun activate");
+    activateProject();
 }
 
 void generateHelloWorld()
@@ -882,4 +892,86 @@ void showEnv()
 
     string absLibPath = absolutePath(localLib);
     writeln("export PERL5LIB=\"", absLibPath, ":$PERL5LIB\";");
+}
+
+void runScript(string[] args)
+{
+    string scriptFile = args[0];
+
+    if (!exists(scriptFile))
+    {
+        writeln("Error: File not found: ", scriptFile);
+        return;
+    }
+
+    string perlBin = "perl";
+    string localLib = "lib";
+
+    if (exists(PROJECT_CONFIG))
+    {
+        string perlVersion = null;
+        string perlPath = null;
+
+        if (exists(PROJECT_LOCAL_CONFIG))
+        {
+            foreach (line; File(PROJECT_LOCAL_CONFIG).byLine())
+            {
+                string l = strip(line.idup);
+                if (l.startsWith("perl-path"))
+                {
+                    auto parts = l.split("=");
+                    if (parts.length == 2)
+                    {
+                        perlPath = strip(parts[1]);
+                    }
+                }
+            }
+        }
+
+        foreach (line; File(PROJECT_CONFIG).byLine())
+        {
+            string l = strip(line.idup);
+            if (l.startsWith("perl"))
+            {
+                auto parts = l.split("=");
+                if (parts.length == 2)
+                {
+                    perlVersion = strip(parts[1]);
+                }
+            }
+            else if (l.startsWith("local-lib"))
+            {
+                auto parts = l.split("=");
+                if (parts.length == 2)
+                {
+                    localLib = strip(parts[1]);
+                }
+            }
+        }
+
+        if (perlPath && exists(perlPath))
+        {
+            perlBin = buildPath(perlPath, "bin", "perl");
+        }
+        else if (perlVersion)
+        {
+            string managedPath = getPerlPath(perlVersion);
+            if (exists(managedPath))
+            {
+                perlBin = buildPath(managedPath, "bin", "perl");
+            }
+        }
+    }
+
+    string[string] env = environment.toAA();
+    if (exists(localLib))
+    {
+        string absLibPath = absolutePath(localLib);
+        string currentPerl5Lib = environment.get("PERL5LIB", "");
+        env["PERL5LIB"] = currentPerl5Lib.length > 0 ? absLibPath ~ ":" ~ currentPerl5Lib
+            : absLibPath;
+    }
+
+    auto result = spawnProcess([perlBin] ~ args, env);
+    wait(result);
 }
