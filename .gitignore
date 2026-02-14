@@ -7,6 +7,7 @@ pun.so
 pun.dylib
 pun.dll
 pun.a
+test_area
 pun.lib
 pun-test-*
 *.exe
