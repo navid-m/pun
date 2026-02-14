@@ -18,7 +18,7 @@ dub run -- <command>
 
 ## Quick Start
 
-### 1. Install a Perl version
+Install a Perl version:
 
 ```bash
 pun install 5.40.0
@@ -26,7 +26,7 @@ pun install 5.40.0
 
 This downloads, compiles, and installs Perl to `~/.pun/perls/5.40.0/`
 
-### 2. Use a Perl version globally
+Use a Perl version globally:
 
 ```bash
 pun use 5.40.0
@@ -34,7 +34,7 @@ pun use 5.40.0
 
 This shows you the export command to add to your shell.
 
-### 3. Initialize a project
+Initialize a project:
 
 ```bash
 cd myproject
@@ -43,7 +43,7 @@ pun init 5.40.0
 
 Creates `.punrc` and `lib/` directory for project-local modules.
 
-### 4. Activate project environment
+Activate project environment:
 
 ```bash
 pun activate
@@ -55,7 +55,7 @@ Shows commands to set up PATH and PERL5LIB. Or use:
 eval "$(pun env)"
 ```
 
-### 5. Add modules to your project
+Add modules to your project:
 
 ```bash
 pun add Mojolicious
@@ -64,7 +64,7 @@ pun add DBI
 
 Modules install to `./lib/` and are tracked in `pun.lock`
 
-## Commands
+Commands:
 
 - `pun install <version>` - Download and install a Perl version
 - `pun use <version>` - Show how to switch to a Perl version
@@ -73,10 +73,6 @@ Modules install to `./lib/` and are tracked in `pun.lock`
 - `pun activate` - Show project activation commands
 - `pun add <module>` - Install CPAN module to project
 - `pun env` - Output environment variables (for eval)
-
-## How It Works
-
-### Version Switching
 
 Each Perl version is installed to `~/.pun/perls/<version>/` with its own `bin/`, `lib/`, etc.
 
@@ -104,20 +100,12 @@ Perl searches this directory first when loading modules, so each project's depen
 ## Example Workflow
 
 ```bash
-# Install Perl 5.40.0
 pun install 5.40.0
-
-# Create new project
 mkdir myapp && cd myapp
 pun init 5.40.0
-
-# Activate environment
 eval "$(pun env)"
-
-# Add dependencies
 pun add Mojolicious
 pun add DBD::SQLite
-
 perl -MMojolicious -e 'print $Mojolicious::VERSION'
 ```
 
@@ -131,4 +119,5 @@ local-lib = lib
 ## License
 
 GPL-3.0-only
+
 Navid M (C) 2026
