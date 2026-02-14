@@ -1,0 +1,2 @@
+- Do not add any comments other than docstrings
+- Always follow a scalable, well-structured approach. If it looks wrong, then it likely is.
