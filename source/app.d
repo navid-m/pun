@@ -73,7 +73,17 @@ void main(string[] args)
             break;
 
         case "init":
-            initProject(args.length >= 3 ? args[2] : null);
+            bool isLib = args.canFind("--lib");
+            string version_ = null;
+            foreach (arg; args[2 .. $])
+            {
+                if (arg != "--lib")
+                {
+                    version_ = arg;
+                    break;
+                }
+            }
+            initProject(version_, isLib);
             break;
 
         case "env":
@@ -99,15 +109,15 @@ void printUsage()
 {
     writeln("usage: pun <options>");
     writeln;
-    writeln("  install <version>  Install a Perl version");
-    writeln("  use <version>      Switch to a Perl version");
-    writeln("  with <path>        Use external Perl installation");
-    writeln("  list               List installed Perl versions");
-    writeln("  init [version]     Initialize project with optional Perl version");
-    writeln("  activate           Activate project environment");
-    writeln("  add <module>       Add a CPAN module to project");
-    writeln("  env                Show environment setup commands");
-    writeln("  version            Show pun version and exit");
+    writeln("  install <version>       Install a Perl version");
+    writeln("  use <version>           Switch to a Perl version");
+    writeln("  with <path>             Use external Perl installation");
+    writeln("  list                    List installed Perl versions");
+    writeln("  init [version] [--lib]  Initialize project (--lib for library scaffold)");
+    writeln("  activate                Activate project environment");
+    writeln("  add <module>            Add a CPAN module to project");
+    writeln("  env                     Show environment setup commands");
+    writeln("  version                 Show pun version and exit");
 }
 
 string getPunHome() => buildPath(environment.get("HOME"), PUN_HOME);
@@ -427,7 +437,7 @@ void updatePunrcVersion(string version_)
     f.close();
 }
 
-void initProject(string version_)
+void initProject(string version_, bool isLib)
 {
     if (exists(PROJECT_CONFIG))
     {
@@ -459,6 +469,15 @@ void initProject(string version_)
         writeln("Skipped .gitignore (already exists)");
     }
 
+    if (isLib)
+    {
+        generateLibScaffolding();
+    }
+    else
+    {
+        generateHelloWorld();
+    }
+
     writeln("Project initialized");
     if (version_)
     {
@@ -467,6 +486,108 @@ void initProject(string version_)
     writeln("  Local lib: lib/");
     writeln();
     writeln("Run: pun activate");
+}
+
+void generateHelloWorld()
+{
+    if (exists("main.pl"))
+    {
+        writeln("Skipped main.pl (already exists)");
+        return;
+    }
+
+    auto f = File("main.pl", "w");
+    f.writeln("#!/usr/bin/env perl");
+    f.writeln("use strict;");
+    f.writeln("use warnings;");
+    f.writeln();
+    f.writeln("print \"Hello, World!\\n\";");
+    f.close();
+
+    version (Posix)
+    {
+        import core.sys.posix.sys.stat;
+
+        chmod("main.pl".toStringz(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+    }
+
+    writeln("Generated main.pl");
+}
+
+void generateLibScaffolding()
+{
+    string projectName = baseName(getcwd());
+    string moduleName = projectName[0 .. 1].toUpper() ~ projectName[1 .. $];
+    string moduleFile = buildPath("lib", moduleName ~ ".pm");
+
+    if (exists(moduleFile))
+    {
+        writeln("Skipped ", moduleFile, " (already exists)");
+    }
+    else
+    {
+        auto f = File(moduleFile, "w");
+        f.writeln("package ", moduleName, ";");
+        f.writeln();
+        f.writeln("use strict;");
+        f.writeln("use warnings;");
+        f.writeln();
+        f.writeln("our $VERSION = '0.01';");
+        f.writeln();
+        f.writeln("sub new {");
+        f.writeln("    my ($class) = @_;");
+        f.writeln("    return bless {}, $class;");
+        f.writeln("}");
+        f.writeln();
+        f.writeln("1;");
+        f.writeln();
+        f.writeln("__END__");
+        f.writeln();
+        f.writeln("=head1 NAME");
+        f.writeln();
+        f.writeln(moduleName, " - A Perl module");
+        f.writeln();
+        f.writeln("=head1 SYNOPSIS");
+        f.writeln();
+        f.writeln("    use ", moduleName, ";");
+        f.writeln("    my $obj = ", moduleName, "->new();");
+        f.writeln();
+        f.writeln("=head1 DESCRIPTION");
+        f.writeln();
+        f.writeln("This module provides...");
+        f.writeln();
+        f.writeln("=cut");
+        f.close();
+        writeln("Generated ", moduleFile);
+    }
+
+    string testFile = "test.pl";
+    if (exists(testFile))
+    {
+        writeln("Skipped ", testFile, " (already exists)");
+    }
+    else
+    {
+        auto f = File(testFile, "w");
+        f.writeln("#!/usr/bin/env perl");
+        f.writeln("use strict;");
+        f.writeln("use warnings;");
+        f.writeln("use lib 'lib';");
+        f.writeln("use ", moduleName, ";");
+        f.writeln();
+        f.writeln("my $obj = ", moduleName, "->new();");
+        f.writeln("print \"Module loaded successfully\\n\";");
+        f.close();
+
+        version (Posix)
+        {
+            import core.sys.posix.sys.stat;
+
+            chmod(testFile.toStringz(), S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+        }
+
+        writeln("Generated ", testFile);
+    }
 }
 
 void generateGitignore()
