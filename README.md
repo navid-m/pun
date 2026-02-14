@@ -41,7 +41,7 @@ cd myproject
 pun init 5.40.0
 ```
 
-Creates `.punrc` and `lib/` directory for project-local modules.
+Creates `.punrc` and `lib/` directory for project-local modules. Also generates a `.gitignore` file if one doesn't exist.
 
 Activate project environment:
 

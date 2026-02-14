@@ -448,6 +448,16 @@ void initProject(string version_)
 	f.writeln("local-lib = lib");
 	f.close();
 
+	if (!exists(".gitignore"))
+	{
+		generateGitignore();
+		writeln("Generated .gitignore");
+	}
+	else
+	{
+		writeln("Skipped .gitignore (already exists)");
+	}
+
 	writeln("Project initialized");
 	if (version_)
 	{
@@ -456,6 +466,28 @@ void initProject(string version_)
 	writeln("  Local lib: lib/");
 	writeln();
 	writeln("Run: pun activate");
+}
+
+void generateGitignore()
+{
+	auto f = File(".gitignore", "w");
+	f.writeln("lib/");
+	f.writeln(".punlrc");
+	f.writeln("*.o");
+	f.writeln("*.so");
+	f.writeln("*.bs");
+	f.writeln("*.swp");
+	f.writeln("*~");
+	f.writeln("blib/");
+	f.writeln("_build/");
+	f.writeln("cover_db/");
+	f.writeln("Build");
+	f.writeln("Build.bat");
+	f.writeln("MYMETA.*");
+	f.writeln("Makefile");
+	f.writeln("Makefile.old");
+	f.writeln("pm_to_blib");
+	f.close();
 }
 
 void activateProject()
