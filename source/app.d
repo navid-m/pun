@@ -93,17 +93,16 @@ void main(string[] args)
 
 void printUsage()
 {
-	writeln("pun - A perl version and package manager");
-	writeln();
-	writeln("Usage:");
-	writeln("  pun install <version>  - Install a Perl version");
-	writeln("  pun use <version>      - Switch to a Perl version");
-	writeln("  pun with <path>        - Use external Perl installation");
-	writeln("  pun list               - List installed Perl versions");
-	writeln("  pun init [version]     - Initialize project with optional Perl version");
-	writeln("  pun activate           - Activate project environment");
-	writeln("  pun add <module>       - Add a CPAN module to project");
-	writeln("  pun env                - Show environment setup commands");
+	writeln("usage: pun <options>");
+	writeln;
+	writeln("  pun install <version>  Install a Perl version");
+	writeln("  pun use <version>      Switch to a Perl version");
+	writeln("  pun with <path>        Use external Perl installation");
+	writeln("  pun list               List installed Perl versions");
+	writeln("  pun init [version]     Initialize project with optional Perl version");
+	writeln("  pun activate           Activate project environment");
+	writeln("  pun add <module>       Add a CPAN module to project");
+	writeln("  pun env                Show environment setup commands");
 }
 
 string getPunHome()
