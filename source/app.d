@@ -11,6 +11,7 @@ import std.conv;
 immutable string PUN_HOME = ".pun";
 immutable string PERLS_DIR = "perls";
 immutable string PROJECT_CONFIG = ".punrc";
+immutable string PROJECT_LOCAL_CONFIG = ".punlrc";
 immutable string PROJECT_LOCK = "pun.lock";
 
 void main(string[] args)
@@ -43,6 +44,15 @@ void main(string[] args)
 				return;
 			}
 			usePerl(args[2]);
+			break;
+
+		case "with":
+			if (args.length < 3)
+			{
+				writeln("Usage: pun with <path>");
+				return;
+			}
+			useExternalPerl(args[2]);
 			break;
 
 		case "list":
@@ -88,6 +98,7 @@ void printUsage()
 	writeln("Usage:");
 	writeln("  pun install <version>  - Install a Perl version");
 	writeln("  pun use <version>      - Switch to a Perl version");
+	writeln("  pun with <path>        - Use external Perl installation");
 	writeln("  pun list               - List installed Perl versions");
 	writeln("  pun init [version]     - Initialize project with optional Perl version");
 	writeln("  pun activate           - Activate project environment");
@@ -260,6 +271,162 @@ void listPerls()
 	}
 }
 
+string detectPerlVersion(string perlBin)
+{
+	auto result = execute([perlBin, "-e", "print $^V"]);
+	if (result.status != 0)
+	{
+		throw new Exception("Failed to detect Perl version");
+	}
+	string output = strip(result.output);
+	if (output.startsWith("v"))
+	{
+		output = output[1 .. $];
+	}
+	return output;
+}
+
+void useExternalPerl(string perlPath)
+{
+	if (perlPath.startsWith("~"))
+	{
+		perlPath = expandTilde(perlPath);
+	}
+
+	perlPath = absolutePath(perlPath);
+
+	if (!exists(perlPath))
+	{
+		writeln("Error: Path does not exist: ", perlPath);
+		return;
+	}
+
+	string perlBin;
+	string installPath;
+
+	if (isFile(perlPath))
+	{
+		perlBin = perlPath;
+		installPath = dirName(dirName(perlPath));
+	}
+	else if (isDir(perlPath))
+	{
+		if (baseName(perlPath) == "bin" && exists(buildPath(perlPath, "perl")))
+		{
+			perlBin = buildPath(perlPath, "perl");
+			installPath = dirName(perlPath);
+		}
+		else
+		{
+			perlBin = buildPath(perlPath, "bin", "perl");
+			installPath = perlPath;
+		}
+	}
+	else
+	{
+		writeln("Error: Invalid path: ", perlPath);
+		return;
+	}
+
+	if (!exists(perlBin))
+	{
+		writeln("Error: Perl binary not found at: ", perlBin);
+		return;
+	}
+
+	writeln("Detecting Perl version...");
+	string detectedVersion;
+	try
+	{
+		detectedVersion = detectPerlVersion(perlBin);
+		writeln("Detected Perl version: ", detectedVersion);
+	}
+	catch (Exception e)
+	{
+		writeln("Warning: Could not detect Perl version: ", e.msg);
+		detectedVersion = "unknown";
+	}
+
+	if (exists(PROJECT_CONFIG))
+	{
+		string currentVersion = null;
+
+		foreach (line; File(PROJECT_CONFIG).byLine())
+		{
+			string l = strip(line.idup);
+			if (l.startsWith("perl"))
+			{
+				auto parts = l.split("=");
+				if (parts.length == 2)
+				{
+					currentVersion = strip(parts[1]);
+				}
+			}
+		}
+
+		if (currentVersion && currentVersion != detectedVersion)
+		{
+			writeln;
+			writeln("Current .punrc specifies Perl version: ", currentVersion);
+			writeln("Detected version from path: ", detectedVersion);
+			write("Update .punrc with detected version? (Y/n): ");
+			stdout.flush();
+
+			string response = strip(readln());
+			if (response == "" || response.toLower() == "y" || response.toLower() == "yes")
+			{
+				updatePunrcVersion(detectedVersion);
+				writeln("Updated .punrc with version: ", detectedVersion);
+			}
+		}
+	}
+
+	auto f = File(PROJECT_LOCAL_CONFIG, "w");
+	f.writeln("perl-path = ", installPath);
+	f.close();
+
+	writeln();
+	writeln("Created ", PROJECT_LOCAL_CONFIG, " pointing to: ", installPath);
+	writeln("Run: pun activate");
+}
+
+void updatePunrcVersion(string version_)
+{
+	if (!exists(PROJECT_CONFIG))
+	{
+		return;
+	}
+
+	string[] lines;
+	bool foundPerl = false;
+
+	foreach (line; File(PROJECT_CONFIG).byLine())
+	{
+		string l = line.idup;
+		if (strip(l).startsWith("perl"))
+		{
+			lines ~= "perl = " ~ version_;
+			foundPerl = true;
+		}
+		else
+		{
+			lines ~= l;
+		}
+	}
+
+	if (!foundPerl)
+	{
+		lines = ["perl = " ~ version_] ~ lines;
+	}
+
+	auto f = File(PROJECT_CONFIG, "w");
+	foreach (line; lines)
+	{
+		f.writeln(line);
+	}
+	f.close();
+}
+
 void initProject(string version_)
 {
 	if (exists(PROJECT_CONFIG))
@@ -301,7 +468,24 @@ void activateProject()
 	}
 
 	string perlVersion = null;
+	string perlPath = null;
 	string localLib = "lib";
+
+	if (exists(PROJECT_LOCAL_CONFIG))
+	{
+		foreach (line; File(PROJECT_LOCAL_CONFIG).byLine())
+		{
+			string l = strip(line.idup);
+			if (l.startsWith("perl-path"))
+			{
+				auto parts = l.split("=");
+				if (parts.length == 2)
+				{
+					perlPath = strip(parts[1]);
+				}
+			}
+		}
+	}
 
 	foreach (line; File(PROJECT_CONFIG).byLine())
 	{
@@ -329,17 +513,29 @@ void activateProject()
 	writeln("Run these commands:");
 	writeln();
 
-	if (perlVersion)
+	if (perlPath)
 	{
-		string perlPath = getPerlPath(perlVersion);
 		if (!exists(perlPath))
+		{
+			writeln("# Warning: Perl path not found: ", perlPath);
+		}
+		else
+		{
+			string binPath = buildPath(perlPath, "bin");
+			writeln("export PATH=\"", binPath, ":$PATH\"");
+		}
+	}
+	else if (perlVersion)
+	{
+		string managedPath = getPerlPath(perlVersion);
+		if (!exists(managedPath))
 		{
 			writeln("# Warning: Perl ", perlVersion, " not installed");
 			writeln("# Run: pun install ", perlVersion);
 		}
 		else
 		{
-			string binPath = buildPath(perlPath, "bin");
+			string binPath = buildPath(managedPath, "bin");
 			writeln("export PATH=\"", binPath, ":$PATH\"");
 		}
 	}
@@ -409,7 +605,24 @@ void showEnv()
 	}
 
 	string perlVersion = null;
+	string perlPath = null;
 	string localLib = "lib";
+
+	if (exists(PROJECT_LOCAL_CONFIG))
+	{
+		foreach (line; File(PROJECT_LOCAL_CONFIG).byLine())
+		{
+			string l = strip(line.idup);
+			if (l.startsWith("perl-path"))
+			{
+				auto parts = l.split("=");
+				if (parts.length == 2)
+				{
+					perlPath = strip(parts[1]);
+				}
+			}
+		}
+	}
 
 	foreach (line; File(PROJECT_CONFIG).byLine())
 	{
@@ -432,12 +645,20 @@ void showEnv()
 		}
 	}
 
-	if (perlVersion)
+	if (perlPath)
 	{
-		string perlPath = getPerlPath(perlVersion);
 		if (exists(perlPath))
 		{
 			string binPath = buildPath(perlPath, "bin");
+			writeln("export PATH=\"", binPath, ":$PATH\";");
+		}
+	}
+	else if (perlVersion)
+	{
+		string managedPath = getPerlPath(perlVersion);
+		if (exists(managedPath))
+		{
+			string binPath = buildPath(managedPath, "bin");
 			writeln("export PATH=\"", binPath, ":$PATH\";");
 		}
 	}

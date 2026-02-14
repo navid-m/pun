@@ -1,6 +1,6 @@
 # pun
 
-Perl version and package manager. `pun` is a fast, simple tool for managing Perl versions and project dependencies.
+Perl version and package manager. 
 
 ## Installation from source
 
@@ -68,6 +68,7 @@ Commands:
 
 - `pun install <version>` - Download and install a Perl version
 - `pun use <version>` - Show how to switch to a Perl version
+- `pun with <path>` - Use an external Perl installation
 - `pun list` - List installed Perl versions
 - `pun init [version]` - Initialize project with optional Perl version
 - `pun activate` - Show project activation commands
@@ -86,6 +87,7 @@ export PATH="$HOME/.pun/perls/5.40.0/bin:$PATH"
 
 Each project has:
 - `.punrc` - Configuration file specifying Perl version and local lib path
+- `.punlrc` - Optional local configuration pointing to external Perl installation
 - `lib/` - Local directory for project-specific modules
 - `pun.lock` - List of installed modules
 
@@ -96,6 +98,22 @@ export PERL5LIB="/path/to/project/lib:$PERL5LIB"
 ```
 
 Perl searches this directory first when loading modules, so each project's dependencies are isolated.
+
+### Using External Perl Installations
+
+If you have an existing Perl installation (e.g., system Perl, perlbrew, or custom build), you can use it with your project:
+
+```bash
+pun with ~/perl5/perlbrew/perls/perl-5.42.0
+```
+
+This will:
+1. Detect the Perl version from the provided path
+2. Prompt to update `.punrc` if the version differs
+3. Create `.punlrc` pointing to the external installation
+4. Use the external Perl when you run `pun activate`
+
+The `.punlrc` file takes precedence over `.punrc` for the Perl installation path, allowing you to override the managed version on a per-project basis.
 
 ## Example Workflow
 
@@ -115,6 +133,16 @@ perl -MMojolicious -e 'print $Mojolicious::VERSION'
 perl = 5.40.0
 local-lib = lib
 ```
+
+## Local Configuration File (.punlrc)
+
+Optional file created by `pun with` to point to an external Perl installation:
+
+```
+perl-path = /home/user/perl5/perlbrew/perls/perl-5.42.0
+```
+
+When `.punlrc` exists, it takes precedence over the `perl` setting in `.punrc`.
 
 ## License
 
