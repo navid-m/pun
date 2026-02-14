@@ -80,6 +80,10 @@ void main(string[] args)
 			showEnv();
 			break;
 
+		case "version":
+			showVersion();
+			break;
+
 		default:
 			writeln("Unknown command: ", command);
 			printUsage();
@@ -95,19 +99,22 @@ void printUsage()
 {
 	writeln("usage: pun <options>");
 	writeln;
-	writeln("  pun install <version>  Install a Perl version");
-	writeln("  pun use <version>      Switch to a Perl version");
-	writeln("  pun with <path>        Use external Perl installation");
-	writeln("  pun list               List installed Perl versions");
-	writeln("  pun init [version]     Initialize project with optional Perl version");
-	writeln("  pun activate           Activate project environment");
-	writeln("  pun add <module>       Add a CPAN module to project");
-	writeln("  pun env                Show environment setup commands");
+	writeln("  install <version>  Install a Perl version");
+	writeln("  use <version>      Switch to a Perl version");
+	writeln("  with <path>        Use external Perl installation");
+	writeln("  list               List installed Perl versions");
+	writeln("  init [version]     Initialize project with optional Perl version");
+	writeln("  activate           Activate project environment");
+	writeln("  add <module>       Add a CPAN module to project");
+	writeln("  env                Show environment setup commands");
+	writeln("  version            Show pun version and exit");
 }
 
-string getPunHome()
+string getPunHome() => buildPath(environment.get("HOME"), PUN_HOME);
+
+void showVersion()
 {
-	return buildPath(environment.get("HOME"), PUN_HOME);
+	writeln("v0.0.1");
 }
 
 string getPerlsDir()
