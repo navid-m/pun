@@ -11,9 +11,7 @@ import pun.local.globs;
 import pun.local.projects;
 
 string getPunHome() => buildPath(environment.get("HOME"), PUN_HOME);
-
 string getPerlsDir() => buildPath(getPunHome(), PERLS_DIR);
-
 string getPerlPath(string version_) => buildPath(getPerlsDir(), version_);
 
 void showVersion()
