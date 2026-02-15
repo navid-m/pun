@@ -1,4 +1,4 @@
-module pun.git;
+module pun.os.git;
 
 import std.stdio;
 

@@ -1,4 +1,4 @@
-module pun.environment;
+module pun.os.environment;
 
 import std.string;
 import std.stdio;
@@ -7,9 +7,8 @@ import std.file;
 import std.algorithm;
 import std.process;
 
-import pun.globs;
-import pun.projects;
-import pun.globs;
+import pun.local.globs;
+import pun.local.projects;
 
 string getPunHome() => buildPath(environment.get("HOME"), PUN_HOME);
 

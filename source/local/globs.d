@@ -1,4 +1,4 @@
-module pun.globs;
+module pun.local.globs;
 
 public:
 static immutable string PUN_HOME = ".pun";

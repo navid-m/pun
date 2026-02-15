@@ -1,4 +1,4 @@
-module pun.cpanm;
+module pun.os.cpanm;
 
 import std.stdio;
 import std.process;

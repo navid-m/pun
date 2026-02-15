@@ -1,14 +1,14 @@
-module pun.projects;
+module pun.local.projects;
 
 import std.file;
 import std.string;
 import std.stdio;
 import std.process;
 
-import pun.globs;
-import pun.environment;
-import pun.git;
-import pun.cpanm;
+import pun.local.globs;
+import pun.os.environment;
+import pun.os.git;
+import pun.os.cpanm;
 
 void initProject(string version_, bool isLib)
 {

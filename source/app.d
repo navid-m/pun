@@ -8,9 +8,9 @@ import std.algorithm;
 import std.array;
 import std.conv;
 
-import pun.environment;
-import pun.globs;
-import pun.projects;
+import pun.os.environment;
+import pun.local.globs;
+import pun.local.projects;
 
 void main(string[] args)
 {
