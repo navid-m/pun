@@ -1,0 +1,16 @@
+lib/
+.punlrc
+*.o
+*.so
+*.bs
+*.swp
+*~
+blib/
+_build/
+cover_db/
+Build
+Build.bat
+MYMETA.*
+Makefile
+Makefile.old
+pm_to_blib
