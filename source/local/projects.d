@@ -70,7 +70,12 @@ void generateHelloWorld()
     }
 
     auto f = File("main.pl", "w");
-    f.writeln("#!/usr/bin/env perl");
+
+    version (Posix)
+    {
+        f.writeln("#!/usr/bin/env perl");
+    }
+
     f.writeln("use strict;");
     f.writeln("use warnings;");
     f.writeln();
