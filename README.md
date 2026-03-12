@@ -4,17 +4,13 @@ Perl version and package manager.
 
 ## Installation from source
 
-The D toolchain is required to build from source.
+The Rust toolchain is required to build from source.
 
 ```bash
-dub build
-sudo cp pun /usr/local/bin/
+cargo build --release
+sudo cp ./target/release/pun /usr/local/bin/
 ```
 
-Or use directly:
-```bash
-dub run -- <command>
-```
 
 ## Quick Start
 
