@@ -51,7 +51,30 @@ impl CpanClient {
     }
 
     pub fn install_module(&self, module_spec: &str) -> Result<String, String> {
+        let mut installed = HashSet::new();
+        self.install_module_recursive(module_spec, &mut installed)
+    }
+
+    fn install_module_recursive(
+        &self,
+        module_spec: &str,
+        installed: &mut HashSet<String>,
+    ) -> Result<String, String> {
         let (module_name, version_req) = self.parse_module_spec(module_spec);
+
+        if installed.contains(&module_name) {
+            return Ok("already_processed".to_string());
+        }
+
+        if self.is_core_module(&module_name) {
+            return Ok("core".to_string());
+        }
+
+        if self.is_installed(&module_name) {
+            return Ok("already_installed".to_string());
+        }
+
+        installed.insert(module_name.clone());
 
         println!("Resolving {}...", module_name);
 
@@ -75,7 +98,7 @@ impl CpanClient {
         let extract_dir = self.extract_distribution(&dist_path, temp_dir.path())?;
 
         let meta = self.read_metadata(&extract_dir)?;
-        self.install_dependencies(&meta, &packages_index)?;
+        self.install_dependencies_recursive(&meta, &packages_index, installed)?;
 
         self.build_and_install(&extract_dir)?;
 
@@ -248,18 +271,19 @@ impl CpanClient {
         }
     }
 
-    fn install_dependencies(
+    fn install_dependencies_recursive(
         &self,
         meta: &MetaSpec,
         _index: &HashMap<String, ModuleInfo>,
+        installed: &mut HashSet<String>,
     ) -> Result<(), String> {
-        let mut to_install = HashSet::new();
+        let mut to_install = Vec::new();
 
         if let Some(runtime) = meta.prereqs.get("runtime") {
             if let Some(requires) = runtime.get("requires") {
                 for (module, _version) in requires {
                     if !self.is_core_module(module) && !self.is_installed(module) {
-                        to_install.insert(module.clone());
+                        to_install.push(module.clone());
                     }
                 }
             }
@@ -269,16 +293,18 @@ impl CpanClient {
             if let Some(requires) = build.get("requires") {
                 for (module, _version) in requires {
                     if !self.is_core_module(module) && !self.is_installed(module) {
-                        to_install.insert(module.clone());
+                        to_install.push(module.clone());
                     }
                 }
             }
         }
 
         for module in to_install {
-            println!("Installing dependency: {}", module);
-            if let Err(e) = self.install_module(&module) {
-                eprintln!("Warning: Failed to install {}: {}", module, e);
+            if !installed.contains(&module) {
+                println!("Installing dependency: {}", module);
+                if let Err(e) = self.install_module_recursive(&module, installed) {
+                    eprintln!("Warning: Failed to install {}: {}", module, e);
+                }
             }
         }
 
@@ -303,6 +329,41 @@ impl CpanClient {
                 | "Fcntl"
                 | "IO::File"
                 | "IO::Handle"
+                | "perl"
+                | "utf8"
+                | "overload"
+                | "Symbol"
+                | "vars"
+                | "constant"
+                | "XSLoader"
+                | "DynaLoader"
+                | "Errno"
+                | "Config"
+                | "Encode"
+                | "Time::HiRes"
+                | "threads"
+                | "threads::shared"
+                | "attributes"
+                | "Getopt::Long"
+                | "Getopt::Std"
+                | "Test::More"
+                | "Test::Simple"
+                | "ExtUtils::MakeMaker"
+                | "Module::Build"
+                | "Pod::Man"
+                | "Pod::Simple"
+                | "Pod::Escapes"
+                | "File::Temp"
+                | "File::Copy"
+                | "File::Find"
+                | "Digest::MD5"
+                | "Digest::SHA"
+                | "MIME::Base64"
+                | "Time::Local"
+                | "Sys::Hostname"
+                | "Socket"
+                | "SelectSaver"
+                | "IPC::Open3"
         )
     }
 

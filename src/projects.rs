@@ -374,11 +374,11 @@ pub fn add_module(module_name: &str) {
     let local_lib_path = PathBuf::from(&local_lib);
     match install_module(module_name, &local_lib_path) {
         Ok(version) => {
-            println!("✓ {} installed", module_name);
+            println!("{} installed", module_name);
             update_lock_file(module_name, &version).unwrap();
         }
         Err(e) => {
-            eprintln!("✗ Failed to install {}: {}", module_name, e);
+            eprintln!("Failed to install {}: {}", module_name, e);
         }
     }
 }
