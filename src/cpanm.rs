@@ -1,4 +1,6 @@
-// cpanm installation utilities
+//! Drop in replacement for CPANM
+//!
+//! GPL-3.0 - Navid M (C) 2026
 
 use std::process::Command;
 
@@ -13,36 +15,16 @@ pub fn ensure_cpanm() -> Result<(), String> {
         println!("cpanm not found. Installing via system package manager...");
 
         let package_managers: &[(&[&str], &str)] = &[
-            (
-                &["which", "apt-get"],
-                "perl-App-cpanminus",
-            ),
-            (
-                &["which", "dnf"],
-                "perl-App-cpanminus",
-            ),
-            (
-                &["which", "yum"],
-                "perl-App-cpanminus",
-            ),
-            (
-                &["which", "pacman"],
-                "perl-app-cpanminus",
-            ),
-            (
-                &["which", "zypper"],
-                "perl-App-cpanminus",
-            ),
-            (
-                &["which", "brew"],
-                "cpanminus",
-            ),
+            (&["which", "apt-get"], "perl-App-cpanminus"),
+            (&["which", "dnf"], "perl-App-cpanminus"),
+            (&["which", "yum"], "perl-App-cpanminus"),
+            (&["which", "pacman"], "perl-app-cpanminus"),
+            (&["which", "zypper"], "perl-App-cpanminus"),
+            (&["which", "brew"], "cpanminus"),
         ];
 
         for (check_cmd, package) in package_managers {
-            let check = Command::new(check_cmd[0])
-                .args(&check_cmd[1..])
-                .output();
+            let check = Command::new(check_cmd[0]).args(&check_cmd[1..]).output();
 
             if let Ok(output) = check {
                 if output.status.success() {
@@ -62,9 +44,7 @@ pub fn ensure_cpanm() -> Result<(), String> {
                         "zypper" => Command::new("sudo")
                             .args(["zypper", "install", "-y", package])
                             .output(),
-                        "brew" => Command::new("brew")
-                            .args(["install", package])
-                            .output(),
+                        "brew" => Command::new("brew").args(["install", package]).output(),
                         _ => unreachable!(),
                     };
 

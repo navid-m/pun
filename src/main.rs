@@ -1,3 +1,7 @@
+//! Pun - A version and package manager for use with Perl
+//!
+//! GPL-3.0 - Navid M (C) 2026
+
 mod cpanm;
 mod environment;
 mod git;

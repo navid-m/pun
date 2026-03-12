@@ -1,4 +1,6 @@
-// Project management functions
+//! Project management functions
+//!
+//! GPL-3.0 - Navid M (C) 2026
 
 use std::env;
 use std::fs;
@@ -6,10 +8,10 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::globs::{PROJECT_CONFIG, PROJECT_LOCAL_CONFIG, PROJECT_LOCK};
-use crate::git::generate_gitignore;
 use crate::cpanm::ensure_cpanm;
 use crate::environment::get_perl_path;
+use crate::git::generate_gitignore;
+use crate::globs::{PROJECT_CONFIG, PROJECT_LOCAL_CONFIG, PROJECT_LOCK};
 
 pub fn read_punrc() -> Result<(Option<String>, Option<String>), std::io::Error> {
     let mut perl_version: Option<String> = None;
@@ -174,7 +176,7 @@ fn generate_lib_scaffolding() {
         .unwrap()
         .to_string_lossy()
         .to_string();
-    
+
     let module_name = if project_name.is_empty() {
         "MyModule".to_string()
     } else {
@@ -306,7 +308,6 @@ pub fn restore_modules() {
         return;
     }
 
-    // Check for cpanm
     let cpanm_check = Command::new("which").arg("cpanm").output();
     if cpanm_check.map(|o| !o.status.success()).unwrap_or(true) {
         if let Err(e) = ensure_cpanm() {
@@ -378,7 +379,6 @@ pub fn add_module(module_name: &str) {
         return;
     }
 
-    // Check for cpanm
     let cpanm_check = Command::new("which").arg("cpanm").output();
     if cpanm_check.map(|o| !o.status.success()).unwrap_or(true) {
         if let Err(e) = ensure_cpanm() {
@@ -498,12 +498,20 @@ pub fn run_script(args: &[String]) {
         if let Some(path) = perl_path {
             let path_buf = PathBuf::from(path);
             if path_buf.exists() {
-                perl_bin = path_buf.join("bin").join("perl").to_string_lossy().to_string();
+                perl_bin = path_buf
+                    .join("bin")
+                    .join("perl")
+                    .to_string_lossy()
+                    .to_string();
             }
         } else if let Some(version) = perl_version {
             let managed_path = get_perl_path(&version);
             if managed_path.exists() {
-                perl_bin = managed_path.join("bin").join("perl").to_string_lossy().to_string();
+                perl_bin = managed_path
+                    .join("bin")
+                    .join("perl")
+                    .to_string_lossy()
+                    .to_string();
             }
         }
 
@@ -515,7 +523,6 @@ pub fn run_script(args: &[String]) {
     let mut cmd = Command::new(&perl_bin);
     cmd.args(args);
 
-    // Set up environment
     if Path::new(&local_lib).exists() {
         let abs_lib_path = env::current_dir()
             .unwrap_or_else(|_| PathBuf::from("."))

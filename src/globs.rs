@@ -1,4 +1,6 @@
-// Constants and configuration
+//! Constants and configuration
+//!
+//! GPL-3.0 - Navid M (C) 2026
 
 pub const PUN_HOME: &str = ".pun";
 pub const PERLS_DIR: &str = "perls";

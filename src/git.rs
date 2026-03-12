@@ -1,4 +1,6 @@
-// Git-related utilities
+//! Git-related utilities
+//!
+//! GPL-3.0 - Navid M (C) 2026
 
 use std::fs::File;
 use std::io::Write;

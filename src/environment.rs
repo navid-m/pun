@@ -1,4 +1,6 @@
-// Environment and Perl installation management
+//! Environment and Perl installation management
+//!
+//! GPL-3.0 - Navid M (C) 2026
 
 use std::env;
 use std::fs;
@@ -217,14 +219,12 @@ pub fn detect_perl_version(perl_bin: &Path) -> Result<String, String> {
 pub fn use_external_perl(perl_path_str: &str) {
     let mut perl_path = PathBuf::from(perl_path_str);
 
-    // Expand tilde
     if perl_path.starts_with("~") {
         if let Ok(home) = env::var("HOME") {
             perl_path = PathBuf::from(home).join(perl_path.strip_prefix("~").unwrap());
         }
     }
 
-    // Make absolute
     if !perl_path.is_absolute() {
         if let Ok(cwd) = env::current_dir() {
             perl_path = cwd.join(perl_path);
