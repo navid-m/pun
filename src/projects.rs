@@ -8,7 +8,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::cpanm::ensure_cpanm;
+use crate::cpanm::install_module;
 use crate::environment::get_perl_path;
 use crate::git::generate_gitignore;
 use crate::globs::{PROJECT_CONFIG, PROJECT_LOCAL_CONFIG, PROJECT_LOCK};
@@ -308,14 +308,6 @@ pub fn restore_modules() {
         return;
     }
 
-    let cpanm_check = Command::new("which").arg("cpanm").output();
-    if cpanm_check.map(|o| !o.status.success()).unwrap_or(true) {
-        if let Err(e) = ensure_cpanm() {
-            eprintln!("Error: {}", e);
-            return;
-        }
-    }
-
     let (_, local_lib) = read_punrc().unwrap();
     let local_lib = local_lib.unwrap_or_else(|| "lib".to_string());
 
@@ -354,19 +346,10 @@ pub fn restore_modules() {
 
         println!("Installing {}...", module_spec);
 
-        let result = Command::new("cpanm")
-            .arg(format!("--local-lib={}", local_lib))
-            .arg(&module_spec)
-            .output();
-
-        if let Ok(output) = result {
-            if output.status.success() {
-                println!("{}", module_spec);
-            } else {
-                eprintln!("Failed to install {}", module_spec);
-            }
-        } else {
-            eprintln!("Failed to install {}", module_spec);
+        let local_lib_path = PathBuf::from(&local_lib);
+        match install_module(&module_spec, &local_lib_path) {
+            Ok(_) => println!("✓ {}", module_spec),
+            Err(e) => eprintln!("✗ Failed to install {}: {}", module_spec, e),
         }
     }
 
@@ -379,14 +362,6 @@ pub fn add_module(module_name: &str) {
         return;
     }
 
-    let cpanm_check = Command::new("which").arg("cpanm").output();
-    if cpanm_check.map(|o| !o.status.success()).unwrap_or(true) {
-        if let Err(e) = ensure_cpanm() {
-            eprintln!("Error: {}", e);
-            return;
-        }
-    }
-
     let (_, local_lib) = read_punrc().unwrap();
     let local_lib = local_lib.unwrap_or_else(|| "lib".to_string());
 
@@ -396,45 +371,16 @@ pub fn add_module(module_name: &str) {
 
     println!("Installing {} to {}...", module_name, local_lib);
 
-    let result = Command::new("cpanm")
-        .arg(format!("--local-lib={}", local_lib))
-        .arg(module_name)
-        .output();
-
-    if let Ok(output) = result {
-        if output.status.success() {
-            println!("{} installed", module_name);
-
-            let installed_version = get_installed_module_version(module_name, &local_lib);
-            update_lock_file(module_name, &installed_version).unwrap();
-        } else {
-            println!("Failed to install {}", module_name);
-            println!("{}", String::from_utf8_lossy(&output.stdout));
+    let local_lib_path = PathBuf::from(&local_lib);
+    match install_module(module_name, &local_lib_path) {
+        Ok(version) => {
+            println!("✓ {} installed", module_name);
+            update_lock_file(module_name, &version).unwrap();
+        }
+        Err(e) => {
+            eprintln!("✗ Failed to install {}: {}", module_name, e);
         }
     }
-}
-
-fn get_installed_module_version(module_name: &str, local_lib: &str) -> String {
-    let search_path = PathBuf::from(local_lib)
-        .canonicalize()
-        .unwrap_or_else(|_| PathBuf::from(local_lib))
-        .join("lib")
-        .join("perl5");
-
-    let result = Command::new("perl")
-        .arg(format!("-I{}", search_path.display()))
-        .arg(format!("-M{}", module_name))
-        .arg("-e")
-        .arg(format!("print ${}::VERSION || 'unknown'", module_name))
-        .output();
-
-    if let Ok(output) = result {
-        if output.status.success() {
-            return String::from_utf8_lossy(&output.stdout).trim().to_string();
-        }
-    }
-
-    "unknown".to_string()
 }
 
 fn update_lock_file(module_name: &str, version: &str) -> std::io::Result<()> {

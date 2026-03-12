@@ -126,21 +126,6 @@ pub fn install_perl(version: &str) -> Result<(), String> {
         return Err("Failed to install Perl".to_string());
     }
 
-    println!("Installing cpanm...");
-    let perl_bin = perl_path.join("bin").join("perl");
-    let _ = Command::new("curl")
-        .arg("-L")
-        .arg("https://cpanmin.us")
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .and_then(|child| {
-            Command::new(&perl_bin)
-                .arg("-")
-                .arg("App::cpanminus")
-                .stdin(child.stdout.unwrap())
-                .status()
-        });
-
     println!("Perl {} installed successfully.", version);
     println!("Run: pun use {}", version);
 
@@ -295,7 +280,6 @@ pub fn use_external_perl(perl_path_str: &str) {
         }
     }
 
-    // Write .punlrc
     if let Ok(mut f) = std::fs::File::create(PROJECT_LOCAL_CONFIG) {
         use std::io::Write;
         writeln!(f, "perl-path = {}", install_path.display()).unwrap();
@@ -308,7 +292,6 @@ pub fn use_external_perl(perl_path_str: &str) {
         install_path.display()
     );
 
-    // Import and call activate_project
     crate::projects::activate_project();
 }
 
