@@ -647,6 +647,5 @@ impl CpanClient {
 }
 
 pub fn install_module(module_spec: &str, local_lib: &Path) -> Result<String, String> {
-    let client = CpanClient::new(local_lib)?;
-    client.install_module(module_spec)
+    CpanClient::new(local_lib)?.install_module(module_spec)
 }
