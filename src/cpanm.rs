@@ -103,13 +103,11 @@ impl CpanClient {
         println!("Found {} in {}", module_name, module_info.distribution);
 
         let dist_path = self.download_distribution(&module_info.distribution)?;
-
         let temp_dir = TempDir::new().map_err(|e| e.to_string())?;
         let extract_dir = self.extract_distribution(&dist_path, temp_dir.path())?;
-
         let meta = self.read_metadata(&extract_dir)?;
-        self.install_dependencies_recursive(&meta, &packages_index, installed)?;
 
+        self.install_dependencies_recursive(&meta, &packages_index, installed)?;
         self.build_and_install(&extract_dir)?;
 
         Ok(module_info.version)
