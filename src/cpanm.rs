@@ -3,12 +3,14 @@
 //! GPL-3.0 - Navid M (C) 2026
 
 use flate2::read::GzDecoder;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 use tar::Archive;
 use tempfile::TempDir;
 
@@ -43,10 +45,18 @@ impl CpanClient {
             fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
         }
 
+        let absolute_local_lib = if local_lib.is_absolute() {
+            local_lib.to_path_buf()
+        } else {
+            std::env::current_dir()
+                .map_err(|e| e.to_string())?
+                .join(local_lib)
+        };
+
         Ok(CpanClient {
             mirror: DEFAULT_MIRROR.to_string(),
             cache_dir,
-            local_lib: local_lib.to_path_buf(),
+            local_lib: absolute_local_lib,
         })
     }
 
@@ -282,7 +292,10 @@ impl CpanClient {
         if let Some(runtime) = meta.prereqs.get("runtime") {
             if let Some(requires) = runtime.get("requires") {
                 for (module, _version) in requires {
-                    if !self.is_core_module(module) && !self.is_installed(module) {
+                    if !self.is_core_module(module)
+                        && !self.is_installed(module)
+                        && !installed.contains(module)
+                    {
                         to_install.push(module.clone());
                     }
                 }
@@ -292,19 +305,45 @@ impl CpanClient {
         if let Some(build) = meta.prereqs.get("build") {
             if let Some(requires) = build.get("requires") {
                 for (module, _version) in requires {
-                    if !self.is_core_module(module) && !self.is_installed(module) {
+                    if !self.is_core_module(module)
+                        && !self.is_installed(module)
+                        && !installed.contains(module)
+                    {
                         to_install.push(module.clone());
                     }
                 }
             }
         }
 
-        for module in to_install {
-            if !installed.contains(&module) {
+        for module in &to_install {
+            installed.insert(module.clone());
+        }
+
+        let installed_mutex = Arc::new(Mutex::new(installed.clone()));
+        let results: Vec<_> = to_install
+            .par_iter()
+            .map(|module| {
                 println!("Installing dependency: {}", module);
-                if let Err(e) = self.install_module_recursive(&module, installed) {
-                    eprintln!("Warning: Failed to install {}: {}", module, e);
+                let mut local_installed = installed_mutex.lock().unwrap().clone();
+                let result = self.install_module_recursive(module, &mut local_installed);
+                let mut shared = installed_mutex.lock().unwrap();
+
+                for item in local_installed {
+                    shared.insert(item);
                 }
+
+                (module.clone(), result)
+            })
+            .collect();
+
+        let final_installed = installed_mutex.lock().unwrap();
+        for item in final_installed.iter() {
+            installed.insert(item.clone());
+        }
+
+        for (module, result) in results {
+            if let Err(e) = result {
+                eprintln!("Warning: Failed to install {}: {}", module, e);
             }
         }
 
@@ -433,14 +472,24 @@ impl CpanClient {
     }
 
     fn is_installed(&self, module: &str) -> bool {
-        let lib_path = self.local_lib.join("lib").join("perl5");
-        if !lib_path.exists() {
-            return false;
+        let locations = vec![
+            self.local_lib.join("lib").join("perl5"),
+            self.local_lib.clone(),
+        ];
+
+        for lib_path in locations {
+            if !lib_path.exists() {
+                continue;
+            }
+
+            let module_path = module.replace("::", "/");
+            let pm_file = lib_path.join(format!("{}.pm", module_path));
+            if pm_file.exists() {
+                return true;
+            }
         }
 
-        let module_path = module.replace("::", "/");
-        let pm_file = lib_path.join(format!("{}.pm", module_path));
-        pm_file.exists()
+        false
     }
 
     fn build_and_install(&self, dist_dir: &Path) -> Result<(), String> {
@@ -460,18 +509,40 @@ impl CpanClient {
 
     fn build_with_makemaker(&self, dist_dir: &Path) -> Result<(), String> {
         println!("Configuring with Makefile.PL...");
+        println!("  Target directory: {}", self.local_lib.display());
 
-        let lib_path = self.local_lib.join("lib").join("perl5");
-        let arch_path = lib_path.join("auto");
-
-        fs::create_dir_all(&lib_path).map_err(|e| e.to_string())?;
-        fs::create_dir_all(&arch_path).map_err(|e| e.to_string())?;
+        fs::create_dir_all(&self.local_lib).map_err(|e| e.to_string())?;
 
         let status = Command::new("perl")
             .arg("Makefile.PL")
-            .arg(format!("INSTALL_BASE={}", self.local_lib.display()))
+            .arg(format!("INSTALLSITELIB={}", self.local_lib.display()))
+            .arg(format!("INSTALLSITEARCH={}", self.local_lib.display()))
+            .arg(format!(
+                "INSTALLSITESCRIPT={}/bin",
+                self.local_lib.display()
+            ))
+            .arg(format!(
+                "INSTALLSITEMAN1DIR={}/man/man1",
+                self.local_lib.display()
+            ))
+            .arg(format!(
+                "INSTALLSITEMAN3DIR={}/man/man3",
+                self.local_lib.display()
+            ))
+            .arg(format!("INSTALLARCHLIB={}", self.local_lib.display()))
+            .arg(format!("INSTALLPRIVLIB={}", self.local_lib.display()))
+            .arg(format!("INSTALLBIN={}/bin", self.local_lib.display()))
+            .arg(format!("INSTALLSCRIPT={}/bin", self.local_lib.display()))
+            .arg(format!(
+                "INSTALLMAN1DIR={}/man/man1",
+                self.local_lib.display()
+            ))
+            .arg(format!(
+                "INSTALLMAN3DIR={}/man/man3",
+                self.local_lib.display()
+            ))
             .current_dir(dist_dir)
-            .env("PERL5LIB", lib_path.to_string_lossy().to_string())
+            .env("PERL5LIB", self.local_lib.to_string_lossy().to_string())
             .status()
             .map_err(|e| format!("Failed to run Makefile.PL: {}", e))?;
 
@@ -480,7 +551,11 @@ impl CpanClient {
         }
 
         println!("Building...");
+
+        let num_jobs = num_cpus::get();
+
         let status = Command::new("make")
+            .arg(format!("-j{}", num_jobs))
             .current_dir(dist_dir)
             .status()
             .map_err(|e| format!("Failed to run make: {}", e))?;
@@ -500,20 +575,41 @@ impl CpanClient {
             return Err("make install failed".to_string());
         }
 
+        println!("  Installed to: {}", self.local_lib.display());
+
         Ok(())
     }
 
     fn build_with_module_build(&self, dist_dir: &Path) -> Result<(), String> {
         println!("Configuring with Build.PL...");
 
-        let lib_path = self.local_lib.join("lib").join("perl5");
-        fs::create_dir_all(&lib_path).map_err(|e| e.to_string())?;
+        fs::create_dir_all(&self.local_lib).map_err(|e| e.to_string())?;
 
         let status = Command::new("perl")
             .arg("Build.PL")
             .arg(format!("--install_base={}", self.local_lib.display()))
+            .arg(format!("--install_path=lib={}", self.local_lib.display()))
+            .arg(format!("--install_path=arch={}", self.local_lib.display()))
+            .arg(format!(
+                "--install_path=script={}/bin",
+                self.local_lib.display()
+            ))
+            .arg(format!(
+                "--install_path=bin={}/bin",
+                self.local_lib.display()
+            ))
+            .arg(format!(
+                "--install_path=libdoc={}/man/man3",
+                self.local_lib.display()
+            ))
+            .arg(format!(
+                "--install_path=bindoc={}/man/man1",
+                self.local_lib.display()
+            ))
             .current_dir(dist_dir)
-            .env("PERL5LIB", lib_path.to_string_lossy().to_string())
+            .env("PERL5LIB", self.local_lib.to_string_lossy().to_string())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .status()
             .map_err(|e| format!("Failed to run Build.PL: {}", e))?;
 
@@ -524,6 +620,8 @@ impl CpanClient {
         println!("Building...");
         let status = Command::new("./Build")
             .current_dir(dist_dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .status()
             .map_err(|e| format!("Failed to run Build: {}", e))?;
 
@@ -535,6 +633,8 @@ impl CpanClient {
         let status = Command::new("./Build")
             .arg("install")
             .current_dir(dist_dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .status()
             .map_err(|e| format!("Failed to run Build install: {}", e))?;
 
