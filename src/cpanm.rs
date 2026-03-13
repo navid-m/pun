@@ -312,7 +312,7 @@ impl CpanClient {
     }
 
     fn is_core_module(&self, module: &str) -> bool {
-        matches!(
+        if matches!(
             module,
             "strict"
                 | "warnings"
@@ -364,7 +364,72 @@ impl CpanClient {
                 | "Socket"
                 | "SelectSaver"
                 | "IPC::Open3"
-        )
+                | "parent"
+                | "base"
+                | "if"
+                | "lib"
+                | "integer"
+                | "bytes"
+                | "feature"
+                | "mro"
+                | "Cwd"
+                | "URI"
+        ) {
+            return true;
+        }
+
+        let core_prefixes = [
+            "Encode::",
+            "ExtUtils::",
+            "Module::",
+            "Pod::",
+            "File::",
+            "IO::",
+            "Test::",
+            "Digest::",
+            "MIME::",
+            "Time::",
+            "Sys::",
+            "IPC::",
+            "Scalar::",
+            "List::",
+            "Hash::",
+            "Getopt::",
+            "threads::",
+            "I18N::",
+            "Net::",
+            "Text::",
+            "Tie::",
+            "User::",
+            "Devel::",
+            "B::",
+            "URI::",
+        ];
+
+        for prefix in &core_prefixes {
+            if module.starts_with(prefix) {
+                return true;
+            }
+        }
+
+        self.is_in_system_perl(module)
+    }
+
+    fn is_in_system_perl(&self, module: &str) -> bool {
+        let check = Command::new("perl")
+            .arg("-M")
+            .arg(module)
+            .arg("-e")
+            .arg("1")
+            .stderr(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .output();
+
+        if let Ok(output) = check {
+            output.status.success()
+        } else {
+            false
+        }
     }
 
     fn is_installed(&self, module: &str) -> bool {
