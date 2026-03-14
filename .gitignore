@@ -6,6 +6,7 @@ docs/
 pun.so
 pun.dylib
 pun.dll
+.DS_Store
 pun.a
 test_area
 target
