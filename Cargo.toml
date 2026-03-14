@@ -15,3 +15,7 @@ serde_json = "1.0"
 tempfile = "3.8"
 rayon = "1.10"
 num_cpus = "1.16"
+
+[dependencies.openssl]
+version = "0.10"
+features = ["vendored"]
